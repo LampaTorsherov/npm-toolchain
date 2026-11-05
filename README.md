@@ -1,20 +1,26 @@
 # npm-toolchain
 
-Copy `.github/workflows/export-bun-registry.yml` and `scripts/collect.mjs` to the frontend repository. Keep `scripts/import.sh` there too.
+The GitHub repository contains only `packages.txt`, scripts and workflow. **Do not upload internal source, package.json, or bun.lock.**
 
-The repository must have a committed text `bun.lock` (Bun >=1.2). Run the GitHub Action. It outputs `bun-registry-export.tar.gz` inside the GitHub Actions artifact. No registry token is needed on GitHub.
+1. Edit `packages.txt` with public `name@exact-version` entries. Push changes to this dedicated public-dependency export repository.
+2. Run Actions -> Export public Bun dependencies -> Run workflow.
+3. Download artifact `bun-registry-export`, extract its `bun-registry-export.tar.gz`.
+4. In the airgapped environment with Bun and access to Gitea, run:
 
-On a machine with access to Gitea and Bun:
-
-```sh
-mkdir bun-registry-export && cd bun-registry-export
+```bash
+mkdir -p bun-import && cd bun-import
 tar -xzf ../bun-registry-export.tar.gz
-export GITEA_TOKEN='your-package-write-token'
-./import.sh
+export GITEA_TOKEN='...'
+bash import.sh
 ```
 
-Override `GITEA_REGISTRY` if necessary. The importer is idempotent with `--tolerate-republish` and verifies SHA-256 for each tarball before publishing. Failures are reported with a nonzero exit code; rerun after fixing the cause.
+Override target with `GITEA_REGISTRY=https://.../api/packages/js/npm/`.
 
-**Scope:** registry semver packages from `bun.lock` only, including optional platform packages and transitive dependencies. Workspace/file/link dependencies are intentionally skipped; git and direct tarball dependencies fail fast (must be treated separately). Original registry tarballs are preserved, and integrity from the lockfile is checked when present. External postinstall downloads and git dependencies are not mirrored. This is not an on-demand npm proxy.
+## Scope and limitations
 
-**Important:** Some lockfiles pin external registry URLs. For offline client builds, verify that `bun.lock` resolves through Gitea rather than `registry.npmjs.org` and avoid running with an old warm cache during acceptance testing. Also check dist-tags: imported versions may get `latest` tags in publication order, so prefer frozen lockfiles / explicit versions.
+- Bun resolves transitive dependencies from a **synthetic** package.json generated from the public allowlist; this does not reproduce an internal bun.lock exactly. Validate offline against the internal lockfile after importing.
+- Platform-specific optional dependencies may be absent when resolution occurs on the GitHub Linux runner. Include needed platform variants explicitly in packages.txt, or use multiple resolution platforms.
+- Git URLs, local/workspace dependencies, aliases and unusual registry specifications are not supported by this exporter; it fails rather than silently omitting unexpected resolved package forms.
+- External binary downloads in postinstall are not mirrored.
+- The importer uses Bun's npm-compatible publish API; test with a small package set before production use.
+- Token and public registry configuration are only needed on the importing machine. The archive contains no secrets.
