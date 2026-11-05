@@ -2,3 +2,18 @@
 # exact: exact published version; latest: highest stable; major: comma-separated majors;
 # yearly: highest stable patch for each minor whose publication date is within interval;
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
+@types/bun|latest|
+typescript|yearly|2022-01-01..2026-11-05
+rxjs|major|5,6,7,8
+dayjs|yearly|2022-01-01..2026-11-05
+zone.js|yearly|2022-01-01..2026-11-05
+@angular/core|major|15
+@angular/common|major|15
+@angular/compiler|major|15
+@angular/compiler-cli|major|15
+@angular/platform-browser|major|15
+@angular/platform-browser-dynamic|major|15
+@angular/forms|major|15
+@angular/router|major|15
+@angular/animations|major|15
+nanojsx|latest|
