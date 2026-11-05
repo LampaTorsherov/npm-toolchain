@@ -4,7 +4,7 @@
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
 @types/bun|latest|
 typescript|yearly|2022-01-01..2026-11-05
-rxjs|major|5,6,7,8
+rxjs|major|5,6,7
 dayjs|yearly|2022-01-01..2026-11-05
 zone.js|yearly|2022-01-01..2026-11-05
 @angular/core|major|15
