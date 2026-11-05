@@ -16,4 +16,4 @@ zone.js|yearly|2022-01-01..2026-11-05
 @angular/forms|major|15
 @angular/router|major|15
 @angular/animations|major|15
-nanojsx|latest|
+nano-jsx|latest|
