@@ -1,13 +1,66 @@
-# Syntax: name|selector|argument
-# exact: exact published version; latest: highest stable; major: comma-separated majors;
-# yearly: highest stable patch for each minor whose publication date is within interval;
-# ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
+# React core
+react|latest|
+react-dom|latest|
+react-is|latest|
+scheduler|latest|
 
-# Syntax: name|selector|argument
-react|exact|19.3.0
-react-dom|exact|19.3.0
-react-router-dom|exact|6.28.0
-babel-plugin-react-compiler|exact|1.0.0
-@testing-library/react|exact|16.0.0
-vite|exact|8.3.6
-@vitejs/plugin-react|exact|6.2.1
+# TypeScript
+typescript|latest|
+@types/react|latest|
+@types/react-dom|latest|
+@types/node|latest|
+
+# Routing
+react-router|latest|
+@react-router/dev|latest|
+@react-router/node|latest|
+@react-router/serve|latest|
+
+# State management
+zustand|latest|
+jotai|latest|
+@reduxjs/toolkit|latest|
+react-redux|latest|
+
+# Server state
+@tanstack/react-query|latest|
+@tanstack/react-query-devtools|latest|
+
+# Forms and validation
+react-hook-form|latest|
+@hookform/resolvers|latest|
+zod|latest|
+valibot|latest|
+
+# UI and primitives
+@radix-ui/react-dialog|latest|
+@radix-ui/react-dropdown-menu|latest|
+@radix-ui/react-popover|latest|
+@radix-ui/react-select|latest|
+@radix-ui/react-tabs|latest|
+@radix-ui/react-tooltip|latest|
+@headlessui/react|latest|
+lucide-react|latest|
+class-variance-authority|latest|
+clsx|latest|
+tailwind-merge|latest|
+
+# Build
+vite|latest|
+@vitejs/plugin-react|latest|
+@vitejs/plugin-react-swc|latest|
+typescript|latest|
+
+# Testing
+vitest|latest|
+@testing-library/react|latest|
+@testing-library/dom|latest|
+@testing-library/user-event|latest|
+@testing-library/jest-dom|latest|
+happy-dom|latest|
+
+# Development
+eslint|latest|
+eslint-plugin-react-hooks|latest|
+eslint-plugin-react-refresh|latest|
+prettier|latest|
