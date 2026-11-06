@@ -1,10 +1,49 @@
-# Syntax: name|selector|argument
-# exact: exact published version; latest: highest stable; major: comma-separated majors;
-# yearly: highest stable patch for each minor whose publication date is within interval;
-# ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
-preact|exact|11.1.1
-preact-render-to-string|exact|6.8.2
-@preact/signals|exact|2.11.1
-preact-iso|exact|2.12.2
-@preact/preset-vite|exact|2.10.6
-vite|exact|8.3.6
+# Preact core
+preact|latest|
+preact-render-to-string|latest|
+preact-iso|latest|
+
+# Routing
+preact-router|latest|
+wouter-preact|latest|
+
+# State
+@preact/signals|latest|
+@preact/signals-core|latest|
+zustand|latest|
+
+# Vite and TypeScript
+vite|latest|
+@preact/preset-vite|latest|
+typescript|latest|
+@types/node|latest|
+
+# Forms and validation
+react-hook-form|latest|
+@hookform/resolvers|latest|
+zod|latest|
+valibot|latest|
+
+# React compatibility
+react|latest|
+react-dom|latest|
+@types/react|latest|
+@types/react-dom|latest|
+
+# UI
+@floating-ui/dom|latest|
+lucide-preact|latest|
+clsx|latest|
+class-variance-authority|latest|
+tailwind-merge|latest|
+
+# Testing
+vitest|latest|
+@testing-library/preact|latest|
+@testing-library/dom|latest|
+@testing-library/user-event|latest|
+happy-dom|latest|
+
+# Development
+eslint|latest|
+prettier|latest|
