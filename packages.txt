@@ -1,12 +1,47 @@
-# Syntax: name|selector|argument
-# exact: exact published version; latest: highest stable; major: comma-separated majors;
-# yearly: highest stable patch for each minor whose publication date is within interval;
-# ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
-vue|exact|3.5.12
-@vue/runtime-core|exact|3.5.12
-@vue/compiler-sfc|exact|3.5.12
-vue-router|exact|5.3.1
-pinia|exact|4.1.0
-@vue/server-renderer|exact|3.5.12
-vite|exact|8.3.6
-@vitejs/plugin-vue|exact|6.0.0
+# Vue core
+vue|latest|
+@vue/compiler-sfc|latest|
+@vue/server-renderer|latest|
+@vue/runtime-core|latest|
+@vue/runtime-dom|latest|
+@vue/reactivity|latest|
+
+# Router and state
+vue-router|latest|
+pinia|latest|
+@pinia/colada|latest|
+
+# Vite / TypeScript
+vite|latest|
+@vitejs/plugin-vue|latest|
+@vitejs/plugin-vue-jsx|latest|
+typescript|latest|
+vue-tsc|latest|
+@vue/tsconfig|latest|
+@types/node|latest|
+
+# Forms and validation
+vee-validate|latest|
+@vee-validate/zod|latest|
+zod|latest|
+valibot|latest|
+
+# Utilities and UI
+@vueuse/core|latest|
+@vueuse/integrations|latest|
+@vueuse/head|latest|
+@headlessui/vue|latest|
+@floating-ui/vue|latest|
+lucide-vue-next|latest|
+
+# Testing
+vitest|latest|
+@vue/test-utils|latest|
+@testing-library/vue|latest|
+happy-dom|latest|
+
+# Development
+eslint|latest|
+eslint-plugin-vue|latest|
+prettier|latest|
+prettier-plugin-vue|latest|
