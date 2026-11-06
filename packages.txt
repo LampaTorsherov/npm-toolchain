@@ -2,12 +2,13 @@
 # exact: exact published version; latest: highest stable; major: comma-separated majors;
 # yearly: highest stable patch for each minor whose publication date is within interval;
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
-@angular/core|exact|15.2.8
-@angular/common|exact|15.2.8
-@angular/compiler|exact|15.2.8
-@angular/compiler-cli|exact|15.2.8
-@angular/platform-browser|exact|15.2.8
-@angular/platform-browser-dynamic|exact|15.2.8
-@angular/forms|exact|15.2.8
-@angular/router|exact|15.2.8
-@angular/animations|exact|15.2.8
+@angular/core|exact|22.2.4
+@angular/common|exact|22.2.4
+@angular/compiler|exact|22.2.4
+@angular/compiler-cli|exact|22.2.4
+@angular/platform-browser|exact|22.2.4
+@angular/platform-browser-dynamic|exact|22.2.4
+@angular/forms|exact|22.2.4
+@angular/router|exact|22.2.4
+@angular/animations|exact|22.2.4
+@angular/cli|exact|22.2.4
