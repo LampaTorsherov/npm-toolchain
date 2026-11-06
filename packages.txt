@@ -2,6 +2,7 @@
 # exact: exact published version; latest: highest stable; major: comma-separated majors;
 # yearly: highest stable patch for each minor whose publication date is within interval;
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
+
 # Syntax: name|selector|argument
 react|exact|19.3.0
 react-dom|exact|19.3.0
@@ -9,5 +10,4 @@ react-router-dom|exact|6.28.0
 babel-plugin-react-compiler|exact|1.0.0
 @testing-library/react|exact|16.0.0
 vite|exact|8.3.6
-@vitejs/plugin-react|exact|8.0.0
-
+@vitejs/plugin-react|exact|6.2.1
