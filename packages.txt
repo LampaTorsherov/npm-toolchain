@@ -6,7 +6,8 @@
 react|exact|19.3.0
 react-dom|exact|19.3.0
 react-router-dom|exact|6.28.0
-@react-compiler/runtime|exact|1.0.0
+babel-plugin-react-compiler|exact|1.0.0
 @testing-library/react|exact|16.0.0
 vite|exact|8.3.6
 @vitejs/plugin-react|exact|8.0.0
+
