@@ -1,10 +1,7 @@
-⁶# Syntax: name|selector|argument
+# Syntax: name|selector|argument
 # exact: exact published version; latest: highest stable; major: comma-separated majors;
 # yearly: highest stable patch for each minor whose publication date is within interval;
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
-# Syntax: name|selector|argument
-
-# Syntax: name|selector|argument
 preact|exact|11.1.1
 preact-render-to-string|exact|6.8.2
 @preact/signals|exact|2.11.1
