@@ -1,4 +1,222 @@
-# Syntax: name|selector|argument
-# exact: exact published version; latest: highest stable; major: comma-separated majors;
-# yearly: highest stable patch for each minor whose publication date is within interval;
-# ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
+# Shared browser / TypeScript utilities for offline Gitea npm registry
+# name|selector|argument ; latest = highest stable x.y.z in export.mjs
+
+# GENERAL UTILITIES
+lodash|latest|
+lodash-es|latest|
+@types/lodash|latest|
+@types/lodash-es|latest|
+remeda|latest|
+es-toolkit|latest|
+immer|latest|
+deepmerge|latest|
+fast-deep-equal|latest|
+fast-json-stable-stringify|latest|
+json5|latest|
+superjson|latest|
+
+# DATE / TIME
+date-fns|latest|
+date-fns-tz|latest|
+luxon|latest|
+@types/luxon|latest|
+dayjs|latest|
+@js-temporal/polyfill|latest|
+
+# VALIDATION / SCHEMAS
+zod|latest|
+valibot|latest|
+yup|latest|
+ajv|latest|
+ajv-formats|latest|
+@sinclair/typebox|latest|
+
+# HTTP / API / NETWORK
+axios|latest|
+ky|latest|
+ofetch|latest|
+openapi-fetch|latest|
+openapi-typescript|latest|
+qs|latest|
+@types/qs|latest|
+query-string|latest|
+jwt-decode|latest|
+jose|latest|
+
+# ASYNC / EVENTS / REACTIVE
+rxjs|latest|
+p-limit|latest|
+p-queue|latest|
+p-retry|latest|
+p-debounce|latest|
+mitt|latest|
+eventemitter3|latest|
+nanoevents|latest|
+
+# BINARY SERIALIZATION / MESSAGEPACK
+@msgpack/msgpack|latest|
+msgpackr|latest|
+msgpack-lite|latest|
+
+# IDS / ENCODING / CRYPTO
+uuid|latest|
+nanoid|latest|
+ulid|latest|
+@scure/base|latest|
+@noble/hashes|latest|
+@noble/curves|latest|
+js-base64|latest|
+base64-js|latest|
+buffer|latest|
+
+# BROWSER STORAGE
+idb|latest|
+dexie|latest|
+localforage|latest|
+js-cookie|latest|
+@types/js-cookie|latest|
+
+# DOM / UI / MARKDOWN
+clsx|latest|
+classnames|latest|
+class-variance-authority|latest|
+tailwind-merge|latest|
+@floating-ui/dom|latest|
+@floating-ui/core|latest|
+@floating-ui/utils|latest|
+focus-trap|latest|
+tabbable|latest|
+dompurify|latest|
+sanitize-html|latest|
+@types/sanitize-html|latest|
+marked|latest|
+markdown-it|latest|
+@types/markdown-it|latest|
+highlight.js|latest|
+prismjs|latest|
+@types/prismjs|latest|
+
+# FORMS / EDITORS
+imask|latest|
+quill|latest|
+@tiptap/core|latest|
+@tiptap/starter-kit|latest|
+@tiptap/extension-link|latest|
+@tiptap/extension-table|latest|
+@tiptap/extension-image|latest|
+prosemirror-model|latest|
+prosemirror-state|latest|
+prosemirror-view|latest|
+prosemirror-transform|latest|
+monaco-editor|latest|
+@codemirror/state|latest|
+@codemirror/view|latest|
+@codemirror/language|latest|
+@codemirror/lang-javascript|latest|
+@codemirror/lang-json|latest|
+@codemirror/lang-css|latest|
+@codemirror/lang-html|latest|
+
+# FILES / PDF / EXCEL / CSV / XML
+pdfjs-dist|latest|
+pdf-lib|latest|
+jspdf|latest|
+exceljs|latest|
+xlsx-js-style|latest|
+papaparse|latest|
+@types/papaparse|latest|
+file-saver|latest|
+@types/file-saver|latest|
+jszip|latest|
+fflate|latest|
+mime|latest|
+mime-types|latest|
+@types/mime-types|latest|
+fast-xml-parser|latest|
+xml2js|latest|
+@types/xml2js|latest|
+
+# CHARTS / VISUALIZATION
+chart.js|latest|
+echarts|latest|
+d3|latest|
+@types/d3|latest|
+apexcharts|latest|
+plotly.js-dist-min|latest|
+mermaid|latest|
+cytoscape|latest|
+
+# TABLES / VIRTUALIZATION / DRAG DROP
+@tanstack/table-core|latest|
+@tanstack/virtual-core|latest|
+@tanstack/query-core|latest|
+@tanstack/store|latest|
+sortablejs|latest|
+@types/sortablejs|latest|
+interactjs|latest|
+
+# TYPESCRIPT / BUILD
+typescript|latest|
+@types/node|latest|
+@types/bun|latest|
+vite|latest|
+vitest|latest|
+rollup|latest|
+@rollup/plugin-node-resolve|latest|
+@rollup/plugin-commonjs|latest|
+@rollup/plugin-typescript|latest|
+esbuild|latest|
+tsup|latest|
+unbuild|latest|
+terser|latest|
+postcss|latest|
+autoprefixer|latest|
+lightningcss|latest|
+
+# LINT / FORMAT
+eslint|latest|
+@eslint/js|latest|
+typescript-eslint|latest|
+eslint-config-prettier|latest|
+eslint-plugin-import|latest|
+eslint-plugin-unused-imports|latest|
+eslint-plugin-unicorn|latest|
+prettier|latest|
+
+# TESTING / MOCKING
+@playwright/test|latest|
+playwright|latest|
+happy-dom|latest|
+jsdom|latest|
+@testing-library/dom|latest|
+@testing-library/user-event|latest|
+@testing-library/jest-dom|latest|
+msw|latest|
+@faker-js/faker|latest|
+sinon|latest|
+@types/sinon|latest|
+chai|latest|
+@types/chai|latest|
+
+# API / SCHEMA / CODEGEN
+@hey-api/openapi-ts|latest|
+json-schema-to-typescript|latest|
+ajv-cli|latest|
+graphql|latest|
+graphql-request|latest|
+
+# CLI / SDK TOOLING
+commander|latest|
+yargs|latest|
+@types/yargs|latest|
+chalk|latest|
+picocolors|latest|
+ora|latest|
+consola|latest|
+dotenv|latest|
+dotenv-expand|latest|
+semver|latest|
+@types/semver|latest|
+fast-glob|latest|
+glob|latest|
+minimatch|latest|
