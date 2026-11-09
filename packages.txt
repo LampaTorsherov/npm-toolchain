@@ -2,3 +2,39 @@
 # exact: exact published version; latest: highest stable; major: comma-separated majors;
 # yearly: highest stable patch for each minor whose publication date is within interval;
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
+# NUXT 4
+nuxt|exact|4.6.4
+
+# NUXT TOOLING
+@nuxt/kit|exact|4.6.4
+@nuxt/schema|exact|4.6.4
+@nuxt/vite-builder|exact|4.6.4
+
+# CLI
+@nuxt/cli|latest|
+
+# VUE / BUILD
+vue|latest|
+vue-router|latest|
+pinia|latest|
+typescript|latest|
+vue-tsc|latest|
+vite|latest|
+@vitejs/plugin-vue|latest|
+@types/node|latest|
+
+# NUXT MODULES
+@nuxt/devtools|latest|
+@nuxt/eslint|latest|
+@nuxt/image|latest|
+@nuxt/icon|latest|
+@nuxt/fonts|latest|
+@nuxt/ui|latest|
+@pinia/nuxt|latest|
+@vueuse/nuxt|latest|
+
+# TESTING
+@nuxt/test-utils|latest|
+vitest|latest|
+happy-dom|latest|
+@vue/test-utils|latest|
