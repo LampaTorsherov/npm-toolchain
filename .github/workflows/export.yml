@@ -1,28 +1,49 @@
-name: Export public Bun dependencies
+name: Export npm packages
+
 on:
   workflow_dispatch:
     inputs:
-      bun-version:
-        description: Pinned Bun version
+      include_transitive_dev_deps:
+        description: 'Include devDependencies of every transitive package (can be HUGE)'
         required: true
-        default: '1.3.3'
-        type: string
-permissions:
-  contents: read
+        type: boolean
+        default: false
+      max_packages:
+        description: 'Safety limit: maximum unique name@version entries'
+        required: true
+        type: number
+        default: 15000
+
 jobs:
   export:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    env:
+      INCLUDE_TRANSITIVE_DEV_DEPS: ${{ inputs.include_transitive_dev_deps && 'true' || 'false' }}
+      MAX_PACKAGES: ${{ inputs.max_packages }}
+      NPM_REGISTRY: https://registry.npmjs.org
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${{ inputs.bun-version }}
+          bun-version: 1.4.4
+
+      - name: Install exporter's semver parser (not part of transfer)
+        run: |
+          test -f package.json || printf '{"name":"npm-exporter","private":true,"type":"module"}\n' > package.json
+          bun add --ignore-scripts --exact semver@7.7.3
+
       - name: Build transfer archive
         run: bun scripts/export.mjs
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload transfer archive
+        uses: actions/upload-artifact@v4
         with:
-          name: bun-registry-export
+          name: npm-registry-export
           path: dist/bun-registry-export.tar.gz
-          retention-days: 1
           if-no-files-found: error
+          retention-days: 7

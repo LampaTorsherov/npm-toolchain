@@ -1,420 +1,710 @@
 #!/usr/bin/env bun
- 
+
 import {
   readFileSync,
   writeFileSync,
   mkdirSync,
-  mkdtempSync,
   rmSync,
   copyFileSync,
 } from "node:fs";
- 
-import { join, resolve } from "node:path";
-import { tmpdir } from "node:os";
+import { resolve, join } from "node:path";
 import { createHash } from "node:crypto";
- 
-const root = resolve(import.meta.dir, "..");
-const out = join(root, "dist");
-const stage = join(out, "transfer");
- 
-rmSync(out, { recursive: true, force: true });
-mkdirSync(join(stage, "tgz"), { recursive: true });
- 
-const registry = "https://registry.npmjs.org";
-const metadataCache = new Map();
- 
-const stable = (v) => /^\d+\.\d+\.\d+$/.test(v);
- 
-const exactVersion = (v) =>
-  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(v);
- 
-const cmp = (a, b) => {
-  const x = a.split(".").map(Number);
-  const y = b.split(".").map(Number);
- 
-  for (let i = 0; i < 3; i++) {
-    if (x[i] !== y[i]) return x[i] - y[i];
-  }
- 
-  return 0;
-};
- 
-function packagePath(name) {
-  return encodeURIComponent(name);
+import semver from "semver";
+
+const ROOT = resolve(import.meta.dir, "..");
+const OUT = join(ROOT, "dist");
+const STAGE = join(OUT, "transfer");
+
+const REGISTRY = (
+  process.env.NPM_REGISTRY ||
+  "https://registry.npmjs.org"
+).replace(/\/$/, "");
+
+const ALL_DEV =
+  process.env.INCLUDE_TRANSITIVE_DEV_DEPS === "true";
+
+const MAX = Number(process.env.MAX_PACKAGES || 15000);
+const WORKERS = 12;
+const DOWNLOAD_WORKERS = 8;
+
+if (!Number.isSafeInteger(MAX) || MAX < 1) {
+  throw new Error("Invalid MAX_PACKAGES");
 }
- 
-async function metadata(name) {
-  if (!metadataCache.has(name)) {
-    const r = await fetch(`${registry}/${packagePath(name)}`);
- 
-    if (!r.ok) {
-      throw new Error(`Metadata ${name}: HTTP ${r.status}`);
+
+const metadataCache = new Map();
+const selected = new Map();
+const queue = [];
+const warnings = [];
+
+let cursor = 0;
+let firstError = null;
+
+const exact = (v) => semver.valid(v) === v;
+const stable = (v) =>
+  exact(v) && semver.prerelease(v) === null;
+
+const key = (name, version) => `${name}@${version}`;
+
+function pkgUrl(name) {
+  return `${REGISTRY}/${encodeURIComponent(name)}`;
+}
+
+async function getJSON(url) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const r = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (r.ok) return r.json();
+
+    if (
+      ![429, 500, 502, 503, 504].includes(r.status) ||
+      attempt === 3
+    ) {
+      throw new Error(`HTTP ${r.status}: ${url}`);
     }
- 
-    metadataCache.set(name, await r.json());
+
+    await Bun.sleep(500 * 2 ** attempt);
   }
- 
+}
+
+function metadata(name) {
+  if (!metadataCache.has(name)) {
+    metadataCache.set(name, getJSON(pkgUrl(name)));
+  }
+
   return metadataCache.get(name);
 }
- 
-async function choose(name, kind, arg) {
-  const meta = await metadata(name);
- 
-  const versions = Object.keys(meta.versions)
+
+function latestStable(meta, context) {
+  const versions = Object.keys(meta.versions || {})
     .filter(stable)
-    .sort(cmp);
- 
-  if (kind === "exact") {
-    if (!meta.versions[arg] || !stable(arg)) {
-      throw new Error(`${name}@${arg} missing/not stable`);
-    }
- 
-    return [arg];
+    .sort(semver.compare);
+
+  if (!versions.length) {
+    throw new Error(
+      `${context}: no stable published versions`
+    );
   }
- 
-  if (kind === "latest") {
-    if (!versions.length) {
-      throw new Error(`${name}: no stable versions`);
-    }
- 
-    return [versions.at(-1)];
-  }
- 
-  if (kind === "major") {
-    const selected = [];
- 
-    for (const m of arg.split(",").map((x) => x.trim())) {
-      const v = versions
-        .filter((v) => v.split(".")[0] === m)
-        .at(-1);
- 
-      if (v) {
-        selected.push(v);
-      } else {
-        console.warn(`WARN ${name}: no stable ${m}.x`);
-      }
-    }
- 
-    if (!selected.length) {
-      throw new Error(`${name}: no requested major available`);
-    }
- 
-    return selected;
-  }
- 
-  if (kind === "yearly") {
-    const match =
-      /^(\d{4}-\d\d-\d\d)\.\.(\d{4}-\d\d-\d\d)$/.exec(arg);
- 
-    if (!match) {
-      throw new Error(`Invalid date range: ${arg}`);
-    }
- 
-    const [, start, end] = match;
-    const byMinor = new Map();
- 
-    for (const v of versions) {
-      const date = meta.time?.[v]?.slice(0, 10);
- 
-      if (!date || date < start || date > end) {
-        continue;
-      }
- 
-      const key = v.split(".").slice(0, 2).join(".");
-      const prev = byMinor.get(key);
- 
-      if (!prev || cmp(v, prev) > 0) {
-        byMinor.set(key, v);
-      }
-    }
- 
-    if (!byMinor.size) {
+
+  return versions.at(-1);
+}
+
+function chooseVersion(meta, range, context) {
+  if (exact(range)) {
+    if (!meta.versions?.[range]) {
       throw new Error(
-        `${name}: no stable releases during ${arg}`,
+        `${context}: missing exact version ${range}`
       );
     }
- 
-    return [...byMinor.values()].sort(cmp);
+
+    return range;
   }
- 
-  throw new Error(`Unknown selector ${kind}`);
+
+  const tagged = meta["dist-tags"]?.[range];
+
+  if (tagged) {
+    if (!meta.versions?.[tagged]) {
+      throw new Error(
+        `${context}: dist-tag ${range} ` +
+        `points to missing version ${tagged}`
+      );
+    }
+
+    return tagged;
+  }
+
+  if (!semver.validRange(range)) {
+    throw new Error(
+      `${context}: unsupported dependency spec ${range}`
+    );
+  }
+
+  const versions = Object.keys(meta.versions || {})
+    .filter(exact);
+
+  const resolved = semver.maxSatisfying(
+    versions,
+    range,
+    { includePrerelease: false }
+  );
+
+  if (!resolved) {
+    throw new Error(
+      `${context}: no published version satisfies ${range}`
+    );
+  }
+
+  return resolved;
 }
- 
-async function run(cmd, args, opts = {}) {
-  const proc = Bun.spawn([cmd, ...args], {
-    cwd: opts.cwd ?? root,
-    env: {
-      ...process.env,
-      ...opts.env,
-    },
-    stdout: "pipe",
-    stderr: "pipe",
+
+function parseSpec(name, range) {
+  if (range.startsWith("npm:")) {
+    const body = range.slice(4);
+    const at = body.lastIndexOf("@");
+
+    if (at <= 0) {
+      throw new Error(
+        `Bad npm alias: ${name}@${range}`
+      );
+    }
+
+    return [
+      body.slice(0, at),
+      body.slice(at + 1),
+    ];
+  }
+
+  return [name, range];
+}
+
+function enqueue(name, version, info) {
+  const id = key(name, version);
+
+  if (selected.has(id)) {
+    const existing = selected.get(id);
+
+    if (info.root && !existing.info.root) {
+      existing.info.root = true;
+      existing.processed = false;
+      queue.push(id);
+    }
+
+    return;
+  }
+
+  if (selected.size >= MAX) {
+    throw new Error(
+      `MAX_PACKAGES=${MAX} exceeded; ` +
+      `refusing incomplete archive`
+    );
+  }
+
+  selected.set(id, {
+    name,
+    version,
+    info: { ...info },
+    processed: false,
   });
- 
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
- 
-  if (code !== 0) {
-    throw new Error(
-      `${cmd} ${args.join(" ")} failed (${code}):\n${stderr}\n${stdout}`,
-    );
-  }
- 
-  return stdout;
+
+  queue.push(id);
 }
- 
+
 // --------------------------------------------------
-// 1. Read packages.txt and resolve root versions
+// 1. Root package selection
 // --------------------------------------------------
- 
-const roots = [];
- 
-for (const [idx, line] of readFileSync(
-  join(root, "packages.txt"),
-  "utf8",
-)
-  .split(/\r?\n/)
-  .entries()) {
-  const s = line.trim();
- 
-  if (!s || s.startsWith("#")) {
-    continue;
-  }
- 
-  const parts = s.split("|");
- 
-  if (parts.length !== 3) {
-    throw new Error(
-      `packages.txt line ${idx + 1}: expected name|selector|arg`,
-    );
-  }
- 
-  const [name, kind, arg] = parts.map((s) => s.trim());
- 
-  for (const v of await choose(name, kind, arg)) {
-    roots.push([name, v]);
-  }
-}
- 
-const selected = new Map();
- 
-for (const [name, version] of roots) {
-  selected.set(`${name}@${version}`, [name, version]);
-}
- 
-console.log(`Root package versions: ${selected.size}`);
- 
-// --------------------------------------------------
-// 2. Resolve transitive dependencies with Bun
-// --------------------------------------------------
- 
-// Resolve roots independently so incompatible
-// RxJS/TypeScript/Angular versions can coexist
-// in the exported registry.
- 
-for (const [name, version] of [...selected.values()]) {
-  const work = mkdtempSync(join(tmpdir(), "bun-resolve-"));
- 
-  try {
-    writeFileSync(
-      join(work, "package.json"),
-      JSON.stringify({
-        name: "public-deps-export",
-        version: "0.0.0",
-        private: true,
-        dependencies: {
-          [name]: version,
-        },
-      }),
-    );
- 
-    await run(
-      "bun",
-      [
-        "install",
-        "--lockfile-only",
-        "--ignore-scripts",
-        "--no-progress",
-      ],
-      {
-        cwd: work,
-        env: {
-          BUN_CONFIG_REGISTRY: registry,
-        },
-      },
-    );
- 
-    const lock = Bun.JSONC.parse(
-      readFileSync(join(work, "bun.lock"), "utf8"),
-    );
- 
-    for (const item of Object.values(lock.packages ?? {})) {
-      if (!Array.isArray(item) || typeof item[0] !== "string") {
-        continue;
-      }
- 
-      const spec = item[0];
-      const at = spec.lastIndexOf("@");
- 
-      if (at <= 0) {
-        continue;
-      }
- 
-      const n = spec.slice(0, at);
-      const v = spec.slice(at + 1);
- 
-      // Root selection excludes prereleases,
-      // but transitive dependencies may require them.
-      //
-      // Examples:
-      //   gensync@1.0.0-beta.2
-      //   package@2.0.0-rc.1
-      //
-      // Only exact semver versions are exported.
-      // No latest, ranges, workspace, file or link refs.
- 
-      if (!exactVersion(v)) {
-        if (/^(?:workspace:|file:|link:)/.test(v)) {
-          continue;
-        }
- 
+
+async function selectRoots() {
+  const lines = readFileSync(
+    join(ROOT, "packages.txt"),
+    "utf8"
+  ).split(/\r?\n/);
+
+  for (const [index, raw] of lines.entries()) {
+    const line = raw.trim();
+
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const parts = line
+      .split("|")
+      .map((x) => x.trim());
+
+    if (parts.length !== 3) {
+      throw new Error(
+        `packages.txt:${index + 1}: ` +
+        `expected name|selector|arg`
+      );
+    }
+
+    const [name, selector, arg] = parts;
+    const meta = await metadata(name);
+
+    const versions = Object.keys(meta.versions || {})
+      .filter(stable)
+      .sort(semver.compare);
+
+    let chosen;
+
+    if (selector === "exact") {
+      if (!meta.versions?.[arg] || !stable(arg)) {
         throw new Error(
-          `Non-registry dependency in lock: ${spec}`,
+          `${name}@${arg}: missing or not stable`
         );
       }
- 
-      selected.set(`${n}@${v}`, [n, v]);
+
+      chosen = [arg];
+    } else if (selector === "latest") {
+      chosen = [latestStable(meta, name)];
+    } else if (selector === "major") {
+      chosen = arg
+        .split(",")
+        .map((s) => s.trim())
+        .map((major) => {
+          const found = versions
+            .filter(
+              (v) =>
+                String(semver.major(v)) === major
+            )
+            .at(-1);
+
+          if (!found) {
+            console.warn(
+              `WARN: ${name} has no stable major ${major}`
+            );
+          }
+
+          return found;
+        })
+        .filter(Boolean);
+
+      if (!chosen.length) {
+        throw new Error(
+          `${name}: no matching majors`
+        );
+      }
+    } else if (selector === "yearly") {
+      const match =
+        /^(\d{4}-\d\d-\d\d)\.\.(\d{4}-\d\d-\d\d)$/.exec(arg);
+
+      if (!match) {
+        throw new Error(
+          `${name}: invalid yearly range ${arg}`
+        );
+      }
+
+      const byMinor = new Map();
+
+      for (const v of versions) {
+        const day = meta.time?.[v]?.slice(0, 10);
+
+        if (!day || day < match[1] || day > match[2]) {
+          continue;
+        }
+
+        const minor =
+          `${semver.major(v)}.${semver.minor(v)}`;
+
+        byMinor.set(minor, v);
+      }
+
+      chosen = [...byMinor.values()];
+
+      if (!chosen.length) {
+        throw new Error(
+          `${name}: no stable versions in ${arg}`
+        );
+      }
+    } else {
+      throw new Error(
+        `Unknown selector: ${selector}`
+      );
     }
-  } finally {
-    rmSync(work, {
-      recursive: true,
-      force: true,
-    });
+
+    for (const version of chosen) {
+      enqueue(name, version, { root: true });
+    }
   }
+
+  console.log(
+    `Root versions: ${selected.size}; ` +
+    `transitive devDeps: ${ALL_DEV}`
+  );
 }
- 
-console.log(
-  `Resolved total package versions: ${selected.size}`,
-);
- 
+
 // --------------------------------------------------
-// 3. Download original tarballs and verify integrity
+// 2. Dependency resolution
 // --------------------------------------------------
- 
-const manifest = [
-  "name\tversion\tfile\tsha256\tsha512",
-];
- 
-let index = 0;
- 
-for (const [name, version] of [...selected.values()].sort(
-  (a, b) =>
-    a[0].localeCompare(b[0]) || cmp(a[1], b[1]),
-)) {
-  const meta = await metadata(name);
-  const dist = meta.versions?.[version]?.dist;
- 
-  if (!dist?.tarball || !dist?.integrity) {
+
+async function resolveOne(id) {
+  const item = selected.get(id);
+
+  if (item.processed) return;
+
+  const meta = await metadata(item.name);
+  const record = meta.versions?.[item.version];
+
+  if (!record) {
     throw new Error(
-      `No integrity/tarball: ${name}@${version}`,
+      `${id}: version metadata missing`
     );
   }
- 
+
+  const groups = [
+    [
+      "dependencies",
+      record.dependencies || {},
+    ],
+    [
+      "optionalDependencies",
+      record.optionalDependencies || {},
+    ],
+    [
+      "peerDependencies",
+      record.peerDependencies || {},
+    ],
+  ];
+
+  if (item.info.root || ALL_DEV) {
+    groups.push([
+      "devDependencies",
+      record.devDependencies || {},
+    ]);
+  }
+
+  for (const [kind, deps] of groups) {
+    for (const [alias, rawRange] of Object.entries(deps)) {
+      const optionalPeer =
+        kind === "peerDependencies" &&
+        record.peerDependenciesMeta?.[alias]
+          ?.optional === true;
+
+      const optional =
+        kind === "optionalDependencies" ||
+        optionalPeer;
+
+      // Published workspace references cannot be
+      // resolved from npm registry metadata.
+      //
+      // Skip every workspace dependency, regardless
+      // of whether it is required or optional.
+      //
+      // Never replace workspace:* with latest.
+      if (
+        typeof rawRange === "string" &&
+        rawRange.startsWith("workspace:")
+      ) {
+        const msg =
+          `WORKSPACE SKIPPED: ${id} ` +
+          `${kind} ${alias}@${rawRange}`;
+
+        warnings.push(msg);
+        console.warn(`WARN: ${msg}`);
+        continue;
+      }
+
+      try {
+        if (typeof rawRange !== "string") {
+          throw new Error(
+            `invalid range ${String(rawRange)}`
+          );
+        }
+
+        const [name, range] =
+          parseSpec(alias, rawRange);
+
+        // Also catch workspace references
+        // hidden inside npm aliases.
+        if (range.startsWith("workspace:")) {
+          const msg =
+            `WORKSPACE SKIPPED: ${id} ` +
+            `${kind} ${alias}@${rawRange}`;
+
+          warnings.push(msg);
+          console.warn(`WARN: ${msg}`);
+          continue;
+        }
+
+        const childMeta = await metadata(name);
+
+        const version = chooseVersion(
+          childMeta,
+          range,
+          `${id} -> ${alias}`
+        );
+
+        enqueue(
+          name,
+          version,
+          { root: false }
+        );
+      } catch (e) {
+        const msg =
+          `${id} ${kind} ` +
+          `${alias}@${rawRange}: ${e.message}`;
+
+        if (!optional) {
+          throw new Error(msg);
+        }
+
+        warnings.push(
+          `OPTIONAL SKIPPED: ${msg}`
+        );
+      }
+    }
+  }
+
+  item.processed = true;
+}
+
+async function resolveAll() {
+  const jobs = Array.from(
+    { length: WORKERS },
+    async () => {
+      while (!firstError && cursor < queue.length) {
+        const id = queue[cursor++];
+
+        try {
+          await resolveOne(id);
+        } catch (e) {
+          firstError ||= e;
+        }
+
+        if (cursor % 250 === 0) {
+          console.log(
+            `Resolved ${cursor}/${queue.length} ` +
+            `(${selected.size} unique)`
+          );
+        }
+      }
+    }
+  );
+
+  await Promise.all(jobs);
+
+  if (firstError) {
+    throw firstError;
+  }
+
+  console.log(
+    `Dependency closure: ${selected.size} ` +
+    `unique name@version entries`
+  );
+}
+
+// --------------------------------------------------
+// 3. Download and verify tarballs
+// --------------------------------------------------
+
+async function downloadOne(item, index) {
+  const meta = await metadata(item.name);
+  const dist = meta.versions?.[item.version]?.dist;
+
+  if (!dist?.tarball) {
+    throw new Error(
+      `${key(item.name, item.version)}: ` +
+      `missing tarball URL`
+    );
+  }
+
   const url = new URL(dist.tarball);
- 
+
   if (
     url.protocol !== "https:" ||
     url.hostname !== "registry.npmjs.org"
   ) {
     throw new Error(
-      `Unexpected tarball host ${url}: ${name}@${version}`,
+      `${key(item.name, item.version)}: ` +
+      `unexpected tarball host ${url.hostname}`
     );
   }
- 
-  const response = await fetch(url);
- 
-  if (!response.ok) {
+
+  let bytes;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const r = await fetch(url);
+
+    if (r.ok) {
+      bytes = Buffer.from(await r.arrayBuffer());
+      break;
+    }
+
+    if (
+      ![429, 500, 502, 503, 504].includes(r.status) ||
+      attempt === 3
+    ) {
+      throw new Error(
+        `${key(item.name, item.version)} ` +
+        `tarball: HTTP ${r.status}`
+      );
+    }
+
+    await Bun.sleep(500 * 2 ** attempt);
+  }
+
+  if (!bytes) {
     throw new Error(
-      `Tarball ${name}@${version}: ${response.status}`,
+      `${key(item.name, item.version)}: ` +
+      `tarball download failed`
     );
   }
- 
-  const bytes = Buffer.from(
-    await response.arrayBuffer(),
-  );
- 
-  const hashes = dist.integrity.split(/\s+/);
- 
+
+  const tokens =
+    (dist.integrity || "").split(/\s+/);
+
   const sri =
-    hashes.find((x) => x.startsWith("sha512-")) ??
-    hashes.find((x) => x.startsWith("sha1-"));
- 
-  if (!sri) {
+    tokens.find((x) => x.startsWith("sha512-")) ||
+    tokens.find((x) => x.startsWith("sha1-"));
+
+  if (sri) {
+    const dash = sri.indexOf("-");
+    const algo = sri.slice(0, dash);
+    const expected = sri
+      .slice(dash + 1)
+      .split("?")[0];
+
+    const actual = createHash(algo)
+      .update(bytes)
+      .digest("base64");
+
+    if (actual !== expected) {
+      throw new Error(
+        `${key(item.name, item.version)}: SRI mismatch`
+      );
+    }
+  } else if (dist.shasum) {
+    const actual = createHash("sha1")
+      .update(bytes)
+      .digest("hex");
+
+    if (actual !== dist.shasum) {
+      throw new Error(
+        `${key(item.name, item.version)}: SHA1 mismatch`
+      );
+    }
+  } else {
     throw new Error(
-      `Unsupported integrity ${name}@${version}`,
+      `${key(item.name, item.version)}: ` +
+      `missing integrity information`
     );
   }
- 
-  const [algorithm, expected] = sri.split("-", 2);
- 
-  const actual = createHash(algorithm)
-    .update(bytes)
-    .digest("base64");
- 
-  if (actual !== expected) {
-    throw new Error(
-      `Integrity mismatch ${name}@${version}`,
-    );
-  }
- 
+
   const sha256 = createHash("sha256")
     .update(bytes)
     .digest("hex");
- 
-  const filename =
-    `tgz/${String(index++).padStart(6, "0")}.tgz`;
- 
-  writeFileSync(
-    join(stage, filename),
-    bytes,
-  );
- 
-  manifest.push(
-    `${name}\t${version}\t${filename}\t${sha256}\t${dist.integrity}`,
-  );
- 
-  if (index % 25 === 0) {
-    console.log(
-      `Downloaded ${index}/${selected.size}`,
-    );
-  }
+
+  const file =
+    `tgz/${String(index).padStart(6, "0")}.tgz`;
+
+  writeFileSync(join(STAGE, file), bytes);
+
+  const integrity =
+    dist.integrity ||
+    `sha1-${Buffer.from(
+      dist.shasum,
+      "hex"
+    ).toString("base64")}`;
+
+  return [
+    item.name,
+    item.version,
+    file,
+    sha256,
+    integrity,
+  ].join("\t");
 }
- 
+
+async function downloadAll() {
+  const items = [...selected.values()].sort(
+    (a, b) =>
+      a.name.localeCompare(b.name) ||
+      semver.compare(a.version, b.version)
+  );
+
+  const lines = new Array(items.length);
+
+  let next = 0;
+  let failure = null;
+
+  await Promise.all(
+    Array.from(
+      { length: DOWNLOAD_WORKERS },
+      async () => {
+        while (!failure && next < items.length) {
+          const i = next++;
+
+          try {
+            lines[i] = await downloadOne(items[i], i);
+          } catch (e) {
+            failure ||= e;
+          }
+
+          if (next % 100 === 0) {
+            console.log(
+              `Downloaded ${next}/${items.length}`
+            );
+          }
+        }
+      }
+    )
+  );
+
+  if (failure) {
+    throw failure;
+  }
+
+  writeFileSync(
+    join(STAGE, "manifest.tsv"),
+    "name\tversion\tfile\tsha256\tsha512\n" +
+      lines.join("\n") +
+      "\n"
+  );
+}
+
 // --------------------------------------------------
 // 4. Build transfer archive
 // --------------------------------------------------
- 
-writeFileSync(
-  join(stage, "manifest.tsv"),
-  manifest.join("\n") + "\n",
-);
- 
-copyFileSync(
-  join(root, "scripts", "import.sh"),
-  join(stage, "import.sh"),
-);
- 
-await run("tar", [
-  "-czf",
-  join(out, "bun-registry-export.tar.gz"),
-  "-C",
-  stage,
-  ".",
-]);
- 
-console.log(
-  `DONE: ${join(out, "bun-registry-export.tar.gz")} (${index} tarballs)`,
-);
+
+async function main() {
+  rmSync(OUT, {
+    recursive: true,
+    force: true,
+  });
+
+  mkdirSync(join(STAGE, "tgz"), {
+    recursive: true,
+  });
+
+  await selectRoots();
+  await resolveAll();
+  await downloadAll();
+
+  writeFileSync(
+    join(STAGE, "warnings.txt"),
+    warnings.join("\n") +
+      (warnings.length ? "\n" : "")
+  );
+
+  if (warnings.length) {
+    console.warn(
+      `Dependency warnings: ${warnings.length} ` +
+      `(see warnings.txt)`
+    );
+  }
+
+  copyFileSync(
+    join(ROOT, "scripts", "import.sh"),
+    join(STAGE, "import.sh")
+  );
+
+  const archive = join(
+    OUT,
+    "bun-registry-export.tar.gz"
+  );
+
+  const proc = Bun.spawn(
+    [
+      "tar",
+      "-czf",
+      archive,
+      "-C",
+      STAGE,
+      ".",
+    ],
+    {
+      stdout: "inherit",
+      stderr: "inherit",
+    }
+  );
+
+  if ((await proc.exited) !== 0) {
+    throw new Error("tar failed");
+  }
+
+  console.log(`DONE: ${archive}`);
+}
+
+await main();
