@@ -23,10 +23,7 @@ const REGISTRY = (
 const ALL_DEV =
   process.env.INCLUDE_TRANSITIVE_DEV_DEPS === "true";
 
-const MAX = Number(
-  process.env.MAX_PACKAGES || 15000
-);
-
+const MAX = Number(process.env.MAX_PACKAGES || 15000);
 const WORKERS = 12;
 const DOWNLOAD_WORKERS = 8;
 
@@ -43,12 +40,10 @@ let cursor = 0;
 let firstError = null;
 
 const exact = (v) => semver.valid(v) === v;
-
 const stable = (v) =>
   exact(v) && semver.prerelease(v) === null;
 
-const key = (name, version) =>
-  `${name}@${version}`;
+const key = (name, version) => `${name}@${version}`;
 
 function pkgUrl(name) {
   return `${REGISTRY}/${encodeURIComponent(name)}`;
@@ -62,46 +57,42 @@ async function getJSON(url) {
       },
     });
 
-    if (r.ok) {
-      return r.json();
-    }
+    if (r.ok) return r.json();
 
     if (
       ![429, 500, 502, 503, 504].includes(r.status) ||
       attempt === 3
     ) {
-      throw new Error(
-        `HTTP ${r.status}: ${url}`
-      );
+      throw new Error(`HTTP ${r.status}: ${url}`);
     }
 
-    await Bun.sleep(
-      500 * (2 ** attempt)
-    );
+    await Bun.sleep(500 * 2 ** attempt);
   }
 }
 
 function metadata(name) {
   if (!metadataCache.has(name)) {
-    metadataCache.set(
-      name,
-      getJSON(pkgUrl(name))
-    );
+    metadataCache.set(name, getJSON(pkgUrl(name)));
   }
 
   return metadataCache.get(name);
 }
 
-// Supports:
-// - exact versions
-// - npm dist-tags (latest, next, beta, rc, etc.)
-// - semver ranges
-function chooseVersion(meta, range, context) {
-  const versions = Object.keys(
-    meta.versions || {}
-  ).filter(exact);
+function latestStable(meta, context) {
+  const versions = Object.keys(meta.versions || {})
+    .filter(stable)
+    .sort(semver.compare);
 
-  // Exact version, including prereleases.
+  if (!versions.length) {
+    throw new Error(
+      `${context}: no stable published versions`
+    );
+  }
+
+  return versions.at(-1);
+}
+
+function chooseVersion(meta, range, context) {
   if (exact(range)) {
     if (!meta.versions?.[range]) {
       throw new Error(
@@ -112,9 +103,7 @@ function chooseVersion(meta, range, context) {
     return range;
   }
 
-  // npm dist-tags.
-  const tagged =
-    meta["dist-tags"]?.[range];
+  const tagged = meta["dist-tags"]?.[range];
 
   if (tagged) {
     if (!meta.versions?.[tagged]) {
@@ -127,19 +116,19 @@ function chooseVersion(meta, range, context) {
     return tagged;
   }
 
-  // Semver range.
   if (!semver.validRange(range)) {
     throw new Error(
       `${context}: unsupported dependency spec ${range}`
     );
   }
 
+  const versions = Object.keys(meta.versions || {})
+    .filter(exact);
+
   const resolved = semver.maxSatisfying(
     versions,
     range,
-    {
-      includePrerelease: false,
-    }
+    { includePrerelease: false }
   );
 
   if (!resolved) {
@@ -151,8 +140,6 @@ function chooseVersion(meta, range, context) {
   return resolved;
 }
 
-// npm aliases:
-// alias-name -> npm:real-name@^1.2.0
 function parseSpec(name, range) {
   if (range.startsWith("npm:")) {
     const body = range.slice(4);
@@ -179,8 +166,6 @@ function enqueue(name, version, info) {
   if (selected.has(id)) {
     const existing = selected.get(id);
 
-    // A previously discovered transitive package
-    // may later appear as an explicit root.
     if (info.root && !existing.info.root) {
       existing.info.root = true;
       existing.processed = false;
@@ -208,7 +193,7 @@ function enqueue(name, version, info) {
 }
 
 // --------------------------------------------------
-// 1. Resolve root package versions
+// 1. Root package selection
 // --------------------------------------------------
 
 async function selectRoots() {
@@ -220,10 +205,7 @@ async function selectRoots() {
   for (const [index, raw] of lines.entries()) {
     const line = raw.trim();
 
-    if (
-      !line ||
-      line.startsWith("#")
-    ) {
+    if (!line || line.startsWith("#")) {
       continue;
     }
 
@@ -241,36 +223,22 @@ async function selectRoots() {
     const [name, selector, arg] = parts;
     const meta = await metadata(name);
 
-    const versions = Object.keys(
-      meta.versions || {}
-    )
+    const versions = Object.keys(meta.versions || {})
       .filter(stable)
       .sort(semver.compare);
 
     let chosen;
 
     if (selector === "exact") {
-      if (
-        !meta.versions?.[arg] ||
-        !stable(arg)
-      ) {
+      if (!meta.versions?.[arg] || !stable(arg)) {
         throw new Error(
-          `${name}@${arg}: ` +
-          `missing or not stable`
+          `${name}@${arg}: missing or not stable`
         );
       }
 
       chosen = [arg];
     } else if (selector === "latest") {
-      if (!versions.length) {
-        throw new Error(
-          `${name}: no stable versions`
-        );
-      }
-
-      chosen = [
-        versions.at(-1),
-      ];
+      chosen = [latestStable(meta, name)];
     } else if (selector === "major") {
       chosen = arg
         .split(",")
@@ -279,16 +247,13 @@ async function selectRoots() {
           const found = versions
             .filter(
               (v) =>
-                String(
-                  semver.major(v)
-                ) === major
+                String(semver.major(v)) === major
             )
             .at(-1);
 
           if (!found) {
             console.warn(
-              `WARN: ${name} has no ` +
-              `stable major ${major}`
+              `WARN: ${name} has no stable major ${major}`
             );
           }
 
@@ -303,9 +268,7 @@ async function selectRoots() {
       }
     } else if (selector === "yearly") {
       const match =
-        /^(\d{4}-\d\d-\d\d)\.\.(\d{4}-\d\d-\d\d)$/.exec(
-          arg
-        );
+        /^(\d{4}-\d\d-\d\d)\.\.(\d{4}-\d\d-\d\d)$/.exec(arg);
 
       if (!match) {
         throw new Error(
@@ -316,30 +279,19 @@ async function selectRoots() {
       const byMinor = new Map();
 
       for (const v of versions) {
-        const day =
-          meta.time?.[v]?.slice(0, 10);
+        const day = meta.time?.[v]?.slice(0, 10);
 
-        if (
-          !day ||
-          day < match[1] ||
-          day > match[2]
-        ) {
+        if (!day || day < match[1] || day > match[2]) {
           continue;
         }
 
         const minor =
-          `${semver.major(v)}.` +
-          `${semver.minor(v)}`;
+          `${semver.major(v)}.${semver.minor(v)}`;
 
-        byMinor.set(
-          minor,
-          v
-        );
+        byMinor.set(minor, v);
       }
 
-      chosen = [
-        ...byMinor.values(),
-      ];
+      chosen = [...byMinor.values()];
 
       if (!chosen.length) {
         throw new Error(
@@ -352,12 +304,8 @@ async function selectRoots() {
       );
     }
 
-    for (const v of chosen) {
-      enqueue(
-        name,
-        v,
-        { root: true }
-      );
+    for (const version of chosen) {
+      enqueue(name, version, { root: true });
     }
   }
 
@@ -368,22 +316,16 @@ async function selectRoots() {
 }
 
 // --------------------------------------------------
-// 2. Resolve dependency closure
+// 2. Dependency resolution
 // --------------------------------------------------
 
 async function resolveOne(id) {
   const item = selected.get(id);
 
-  if (item.processed) {
-    return;
-  }
+  if (item.processed) return;
 
-  const meta = await metadata(
-    item.name
-  );
-
-  const record =
-    meta.versions?.[item.version];
+  const meta = await metadata(item.name);
+  const record = meta.versions?.[item.version];
 
   if (!record) {
     throw new Error(
@@ -406,10 +348,7 @@ async function resolveOne(id) {
     ],
   ];
 
-  if (
-    item.info.root ||
-    ALL_DEV
-  ) {
+  if (item.info.root || ALL_DEV) {
     groups.push([
       "devDependencies",
       record.devDependencies || {},
@@ -417,10 +356,7 @@ async function resolveOne(id) {
   }
 
   for (const [kind, deps] of groups) {
-    for (
-      const [alias, rawRange]
-      of Object.entries(deps)
-    ) {
+    for (const [alias, rawRange] of Object.entries(deps)) {
       const optionalPeer =
         kind === "peerDependencies" &&
         record.peerDependenciesMeta?.[alias]
@@ -430,30 +366,55 @@ async function resolveOne(id) {
         kind === "optionalDependencies" ||
         optionalPeer;
 
+      // Published workspace references cannot be
+      // resolved from npm registry metadata.
+      //
+      // Skip every workspace dependency, regardless
+      // of whether it is required or optional.
+      //
+      // Never replace workspace:* with latest.
+      if (
+        typeof rawRange === "string" &&
+        rawRange.startsWith("workspace:")
+      ) {
+        const msg =
+          `WORKSPACE SKIPPED: ${id} ` +
+          `${kind} ${alias}@${rawRange}`;
+
+        warnings.push(msg);
+        console.warn(`WARN: ${msg}`);
+        continue;
+      }
+
       try {
-        if (
-          typeof rawRange !== "string"
-        ) {
+        if (typeof rawRange !== "string") {
           throw new Error(
             `invalid range ${String(rawRange)}`
           );
         }
 
         const [name, range] =
-          parseSpec(
-            alias,
-            rawRange
-          );
+          parseSpec(alias, rawRange);
 
-        const childMeta =
-          await metadata(name);
+        // Also catch workspace references
+        // hidden inside npm aliases.
+        if (range.startsWith("workspace:")) {
+          const msg =
+            `WORKSPACE SKIPPED: ${id} ` +
+            `${kind} ${alias}@${rawRange}`;
 
-        const version =
-          chooseVersion(
-            childMeta,
-            range,
-            `${id} -> ${alias}`
-          );
+          warnings.push(msg);
+          console.warn(`WARN: ${msg}`);
+          continue;
+        }
+
+        const childMeta = await metadata(name);
+
+        const version = chooseVersion(
+          childMeta,
+          range,
+          `${id} -> ${alias}`
+        );
 
         enqueue(
           name,
@@ -463,8 +424,7 @@ async function resolveOne(id) {
       } catch (e) {
         const msg =
           `${id} ${kind} ` +
-          `${alias}@${rawRange}: ` +
-          `${e.message}`;
+          `${alias}@${rawRange}: ${e.message}`;
 
         if (!optional) {
           throw new Error(msg);
@@ -484,12 +444,8 @@ async function resolveAll() {
   const jobs = Array.from(
     { length: WORKERS },
     async () => {
-      while (
-        !firstError &&
-        cursor < queue.length
-      ) {
-        const id =
-          queue[cursor++];
+      while (!firstError && cursor < queue.length) {
+        const id = queue[cursor++];
 
         try {
           await resolveOne(id);
@@ -497,9 +453,7 @@ async function resolveAll() {
           firstError ||= e;
         }
 
-        if (
-          cursor % 250 === 0
-        ) {
+        if (cursor % 250 === 0) {
           console.log(
             `Resolved ${cursor}/${queue.length} ` +
             `(${selected.size} unique)`
@@ -516,23 +470,18 @@ async function resolveAll() {
   }
 
   console.log(
-    `Dependency closure: ` +
-    `${selected.size} unique ` +
-    `name@version entries`
+    `Dependency closure: ${selected.size} ` +
+    `unique name@version entries`
   );
 }
 
 // --------------------------------------------------
-// 3. Download and verify npm tarballs
+// 3. Download and verify tarballs
 // --------------------------------------------------
 
 async function downloadOne(item, index) {
-  const meta = await metadata(
-    item.name
-  );
-
-  const dist =
-    meta.versions?.[item.version]?.dist;
+  const meta = await metadata(item.name);
+  const dist = meta.versions?.[item.version]?.dist;
 
   if (!dist?.tarball) {
     throw new Error(
@@ -541,9 +490,7 @@ async function downloadOne(item, index) {
     );
   }
 
-  const url = new URL(
-    dist.tarball
-  );
+  const url = new URL(dist.tarball);
 
   if (
     url.protocol !== "https:" ||
@@ -551,31 +498,22 @@ async function downloadOne(item, index) {
   ) {
     throw new Error(
       `${key(item.name, item.version)}: ` +
-      `unexpected tarball host ` +
-      `${url.hostname}`
+      `unexpected tarball host ${url.hostname}`
     );
   }
 
   let bytes;
 
-  for (
-    let attempt = 0;
-    attempt < 4;
-    attempt++
-  ) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     const r = await fetch(url);
 
     if (r.ok) {
-      bytes = Buffer.from(
-        await r.arrayBuffer()
-      );
+      bytes = Buffer.from(await r.arrayBuffer());
       break;
     }
 
     if (
-      ![429, 500, 502, 503, 504].includes(
-        r.status
-      ) ||
+      ![429, 500, 502, 503, 504].includes(r.status) ||
       attempt === 3
     ) {
       throw new Error(
@@ -584,9 +522,7 @@ async function downloadOne(item, index) {
       );
     }
 
-    await Bun.sleep(
-      500 * (2 ** attempt)
-    );
+    await Bun.sleep(500 * 2 ** attempt);
   }
 
   if (!bytes) {
@@ -596,52 +532,37 @@ async function downloadOne(item, index) {
     );
   }
 
-  const tokens = (
-    dist.integrity || ""
-  ).split(/\s+/);
+  const tokens =
+    (dist.integrity || "").split(/\s+/);
 
   const sri =
-    tokens.find(
-      (x) => x.startsWith("sha512-")
-    ) ||
-    tokens.find(
-      (x) => x.startsWith("sha1-")
-    );
+    tokens.find((x) => x.startsWith("sha512-")) ||
+    tokens.find((x) => x.startsWith("sha1-"));
 
   if (sri) {
-    const dash =
-      sri.indexOf("-");
+    const dash = sri.indexOf("-");
+    const algo = sri.slice(0, dash);
+    const expected = sri
+      .slice(dash + 1)
+      .split("?")[0];
 
-    const algo =
-      sri.slice(0, dash);
-
-    const expected =
-      sri.slice(dash + 1)
-        .split("?")[0];
-
-    const actual =
-      createHash(algo)
-        .update(bytes)
-        .digest("base64");
+    const actual = createHash(algo)
+      .update(bytes)
+      .digest("base64");
 
     if (actual !== expected) {
       throw new Error(
-        `${key(item.name, item.version)}: ` +
-        `SRI mismatch`
+        `${key(item.name, item.version)}: SRI mismatch`
       );
     }
   } else if (dist.shasum) {
-    const actual =
-      createHash("sha1")
-        .update(bytes)
-        .digest("hex");
+    const actual = createHash("sha1")
+      .update(bytes)
+      .digest("hex");
 
-    if (
-      actual !== dist.shasum
-    ) {
+    if (actual !== dist.shasum) {
       throw new Error(
-        `${key(item.name, item.version)}: ` +
-        `SHA1 mismatch`
+        `${key(item.name, item.version)}: SHA1 mismatch`
       );
     }
   } else {
@@ -651,21 +572,14 @@ async function downloadOne(item, index) {
     );
   }
 
-  const sha256 =
-    createHash("sha256")
-      .update(bytes)
-      .digest("hex");
+  const sha256 = createHash("sha256")
+    .update(bytes)
+    .digest("hex");
 
   const file =
-    `tgz/${String(index).padStart(
-      6,
-      "0"
-    )}.tgz`;
+    `tgz/${String(index).padStart(6, "0")}.tgz`;
 
-  writeFileSync(
-    join(STAGE, file),
-    bytes
-  );
+  writeFileSync(join(STAGE, file), bytes);
 
   const integrity =
     dist.integrity ||
@@ -684,53 +598,33 @@ async function downloadOne(item, index) {
 }
 
 async function downloadAll() {
-  const items = [
-    ...selected.values(),
-  ].sort(
+  const items = [...selected.values()].sort(
     (a, b) =>
-      a.name.localeCompare(
-        b.name
-      ) ||
-      semver.compare(
-        a.version,
-        b.version
-      )
+      a.name.localeCompare(b.name) ||
+      semver.compare(a.version, b.version)
   );
 
-  const lines =
-    new Array(items.length);
+  const lines = new Array(items.length);
 
   let next = 0;
   let failure = null;
 
   await Promise.all(
     Array.from(
-      {
-        length: DOWNLOAD_WORKERS,
-      },
+      { length: DOWNLOAD_WORKERS },
       async () => {
-        while (
-          !failure &&
-          next < items.length
-        ) {
+        while (!failure && next < items.length) {
           const i = next++;
 
           try {
-            lines[i] =
-              await downloadOne(
-                items[i],
-                i
-              );
+            lines[i] = await downloadOne(items[i], i);
           } catch (e) {
             failure ||= e;
           }
 
-          if (
-            next % 100 === 0
-          ) {
+          if (next % 100 === 0) {
             console.log(
-              `Downloaded ` +
-              `${next}/${items.length}`
+              `Downloaded ${next}/${items.length}`
             );
           }
         }
@@ -743,10 +637,7 @@ async function downloadAll() {
   }
 
   writeFileSync(
-    join(
-      STAGE,
-      "manifest.tsv"
-    ),
+    join(STAGE, "manifest.tsv"),
     "name\tversion\tfile\tsha256\tsha512\n" +
       lines.join("\n") +
       "\n"
@@ -758,59 +649,35 @@ async function downloadAll() {
 // --------------------------------------------------
 
 async function main() {
-  rmSync(
-    OUT,
-    {
-      recursive: true,
-      force: true,
-    }
-  );
+  rmSync(OUT, {
+    recursive: true,
+    force: true,
+  });
 
-  mkdirSync(
-    join(
-      STAGE,
-      "tgz"
-    ),
-    {
-      recursive: true,
-    }
-  );
+  mkdirSync(join(STAGE, "tgz"), {
+    recursive: true,
+  });
 
   await selectRoots();
   await resolveAll();
   await downloadAll();
 
   writeFileSync(
-    join(
-      STAGE,
-      "warnings.txt"
-    ),
+    join(STAGE, "warnings.txt"),
     warnings.join("\n") +
-      (
-        warnings.length
-          ? "\n"
-          : ""
-      )
+      (warnings.length ? "\n" : "")
   );
 
   if (warnings.length) {
     console.warn(
-      `Optional dependencies skipped: ` +
-      `${warnings.length} ` +
+      `Dependency warnings: ${warnings.length} ` +
       `(see warnings.txt)`
     );
   }
 
   copyFileSync(
-    join(
-      ROOT,
-      "scripts",
-      "import.sh"
-    ),
-    join(
-      STAGE,
-      "import.sh"
-    )
+    join(ROOT, "scripts", "import.sh"),
+    join(STAGE, "import.sh")
   );
 
   const archive = join(
@@ -833,17 +700,11 @@ async function main() {
     }
   );
 
-  if (
-    (await proc.exited) !== 0
-  ) {
-    throw new Error(
-      "tar failed"
-    );
+  if ((await proc.exited) !== 0) {
+    throw new Error("tar failed");
   }
 
-  console.log(
-    `DONE: ${archive}`
-  );
+  console.log(`DONE: ${archive}`);
 }
 
 await main();
