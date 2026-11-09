@@ -42,7 +42,6 @@ let firstError = null;
 const exact = (v) => semver.valid(v) === v;
 const stable = (v) =>
   exact(v) && semver.prerelease(v) === null;
-
 const key = (name, version) => `${name}@${version}`;
 
 function pkgUrl(name) {
@@ -68,6 +67,8 @@ async function getJSON(url) {
 
     await Bun.sleep(500 * 2 ** attempt);
   }
+
+  throw new Error(`Failed to fetch ${url}`);
 }
 
 function metadata(name) {
@@ -160,20 +161,10 @@ function parseSpec(name, range) {
   return [name, range];
 }
 
-function enqueue(name, version, info) {
+function enqueue(name, version) {
   const id = key(name, version);
 
-  if (selected.has(id)) {
-    const existing = selected.get(id);
-
-    if (info.root && !existing.info.root) {
-      existing.info.root = true;
-      existing.processed = false;
-      queue.push(id);
-    }
-
-    return;
-  }
+  if (selected.has(id)) return;
 
   if (selected.size >= MAX) {
     throw new Error(
@@ -185,11 +176,14 @@ function enqueue(name, version, info) {
   selected.set(id, {
     name,
     version,
-    info: { ...info },
-    processed: false,
   });
 
   queue.push(id);
+}
+
+function warn(message) {
+  warnings.push(message);
+  console.warn(`WARN: ${message}`);
 }
 
 // --------------------------------------------------
@@ -205,9 +199,7 @@ async function selectRoots() {
   for (const [index, raw] of lines.entries()) {
     const line = raw.trim();
 
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
+    if (!line || line.startsWith("#")) continue;
 
     const parts = line
       .split("|")
@@ -252,8 +244,8 @@ async function selectRoots() {
             .at(-1);
 
           if (!found) {
-            console.warn(
-              `WARN: ${name} has no stable major ${major}`
+            warn(
+              `${name}: no stable major ${major}`
             );
           }
 
@@ -305,7 +297,7 @@ async function selectRoots() {
     }
 
     for (const version of chosen) {
-      enqueue(name, version, { root: true });
+      enqueue(name, version);
     }
   }
 
@@ -316,14 +308,11 @@ async function selectRoots() {
 }
 
 // --------------------------------------------------
-// 2. Dependency resolution
+// 2. Recursive dependency resolution
 // --------------------------------------------------
 
 async function resolveOne(id) {
   const item = selected.get(id);
-
-  if (item.processed) return;
-
   const meta = await metadata(item.name);
   const record = meta.versions?.[item.version];
 
@@ -348,7 +337,12 @@ async function resolveOne(id) {
     ],
   ];
 
-  if (item.info.root || ALL_DEV) {
+  // Published package devDependencies are not
+  // installed by bun add.
+  //
+  // With the checkbox enabled, include devDeps
+  // of ALL packages, including selected roots.
+  if (ALL_DEV) {
     groups.push([
       "devDependencies",
       record.devDependencies || {},
@@ -366,23 +360,19 @@ async function resolveOne(id) {
         kind === "optionalDependencies" ||
         optionalPeer;
 
-      // Published workspace references cannot be
-      // resolved from npm registry metadata.
-      //
-      // Skip every workspace dependency, regardless
-      // of whether it is required or optional.
-      //
-      // Never replace workspace:* with latest.
+      const development =
+        kind === "devDependencies";
+
+      // workspace:* is not a registry dependency.
+      // Never replace it with "latest".
       if (
         typeof rawRange === "string" &&
         rawRange.startsWith("workspace:")
       ) {
-        const msg =
+        warn(
           `WORKSPACE SKIPPED: ${id} ` +
-          `${kind} ${alias}@${rawRange}`;
-
-        warnings.push(msg);
-        console.warn(`WARN: ${msg}`);
+          `${kind} ${alias}@${rawRange}`
+        );
         continue;
       }
 
@@ -393,18 +383,16 @@ async function resolveOne(id) {
           );
         }
 
-        const [name, range] =
-          parseSpec(alias, rawRange);
+        const [name, range] = parseSpec(
+          alias,
+          rawRange
+        );
 
-        // Also catch workspace references
-        // hidden inside npm aliases.
         if (range.startsWith("workspace:")) {
-          const msg =
+          warn(
             `WORKSPACE SKIPPED: ${id} ` +
-            `${kind} ${alias}@${rawRange}`;
-
-          warnings.push(msg);
-          console.warn(`WARN: ${msg}`);
+            `${kind} ${alias}@${rawRange}`
+          );
           continue;
         }
 
@@ -416,28 +404,31 @@ async function resolveOne(id) {
           `${id} -> ${alias}`
         );
 
-        enqueue(
-          name,
-          version,
-          { root: false }
-        );
+        enqueue(name, version);
       } catch (e) {
         const msg =
           `${id} ${kind} ` +
           `${alias}@${rawRange}: ${e.message}`;
 
-        if (!optional) {
-          throw new Error(msg);
+        // Optional dependencies may legitimately
+        // be unavailable.
+        //
+        // Dev dependencies of published packages
+        // may refer to private build tooling.
+        //
+        // Neither should abort the transfer.
+        if (optional || development) {
+          warn(
+            `${development ? "DEV" : "OPTIONAL"} ` +
+            `SKIPPED: ${msg}`
+          );
+          continue;
         }
 
-        warnings.push(
-          `OPTIONAL SKIPPED: ${msg}`
-        );
+        throw new Error(msg);
       }
     }
   }
-
-  item.processed = true;
 }
 
 async function resolveAll() {
@@ -476,7 +467,7 @@ async function resolveAll() {
 }
 
 // --------------------------------------------------
-// 3. Download and verify tarballs
+// 3. Download and verify original tarballs
 // --------------------------------------------------
 
 async function downloadOne(item, index) {
@@ -552,7 +543,8 @@ async function downloadOne(item, index) {
 
     if (actual !== expected) {
       throw new Error(
-        `${key(item.name, item.version)}: SRI mismatch`
+        `${key(item.name, item.version)}: ` +
+        `SRI mismatch`
       );
     }
   } else if (dist.shasum) {
@@ -562,7 +554,8 @@ async function downloadOne(item, index) {
 
     if (actual !== dist.shasum) {
       throw new Error(
-        `${key(item.name, item.version)}: SHA1 mismatch`
+        `${key(item.name, item.version)}: ` +
+        `SHA1 mismatch`
       );
     }
   } else {
