@@ -166,10 +166,8 @@ function enqueue(name, version, info) {
   if (selected.has(id)) {
     const existing = selected.get(id);
 
-    if (info.root && !existing.info.root) {
+    if (info.root) {
       existing.info.root = true;
-      existing.processed = false;
-      queue.push(id);
     }
 
     return;
@@ -348,7 +346,9 @@ async function resolveOne(id) {
     ],
   ];
 
-  if (item.info.root || ALL_DEV) {
+  // Disabled for all packages by default,
+  // including root packages.
+  if (ALL_DEV) {
     groups.push([
       "devDependencies",
       record.devDependencies || {},
@@ -368,10 +368,6 @@ async function resolveOne(id) {
 
       // Published workspace references cannot be
       // resolved from npm registry metadata.
-      //
-      // Skip every workspace dependency, regardless
-      // of whether it is required or optional.
-      //
       // Never replace workspace:* with latest.
       if (
         typeof rawRange === "string" &&
@@ -396,8 +392,6 @@ async function resolveOne(id) {
         const [name, range] =
           parseSpec(alias, rawRange);
 
-        // Also catch workspace references
-        // hidden inside npm aliases.
         if (range.startsWith("workspace:")) {
           const msg =
             `WORKSPACE SKIPPED: ${id} ` +
@@ -416,11 +410,7 @@ async function resolveOne(id) {
           `${id} -> ${alias}`
         );
 
-        enqueue(
-          name,
-          version,
-          { root: false }
-        );
+        enqueue(name, version, { root: false });
       } catch (e) {
         const msg =
           `${id} ${kind} ` +
