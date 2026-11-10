@@ -155,7 +155,8 @@ while IFS=$'\t' read -r name version file sha256 integrity || [[ -n "$name" ]]; 
         --json \
         --loglevel=silent 2>/dev/null) || existing=""
 
-    if [[ "$existing" == "\\"$version\\"" ]]; then
+    # Correct JSON string comparison.
+    if [[ "$existing" == "\"$version\"" ]]; then
         echo "SKIP: already published $name@$version"
         skipped=$((skipped + 1))
         continue
