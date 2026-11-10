@@ -2,24 +2,36 @@
 set -Eeuo pipefail
 
 REGISTRY="${REGISTRY:-https://registry.tsniimash.ru:3001/api/packages/js/npm/}"
-
 ROOT="$(pwd -P)"
 MANIFEST="$ROOT/manifest.tsv"
 TMP="$ROOT/pkg-tmp"
+START="${1:-1}"
 
-if [[ ! -f "$MANIFEST" ]]; then
-    echo "ERROR: manifest.tsv not found in $ROOT" >&2
-    exit 1
+if (( $# > 1 )) || [[ ! "$START" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Usage: $0 [START_PACKAGE_NUMBER (1-based)]" >&2
+    exit 2
 fi
 
-if ! command -v bun >/dev/null 2>&1; then
+[[ -f "$MANIFEST" ]] || {
+    echo "ERROR: missing $MANIFEST" >&2
+    exit 1
+}
+
+command -v bun >/dev/null 2>&1 || {
     echo "ERROR: bun not found" >&2
     exit 1
-fi
+}
 
-if [[ -e "$TMP" ]]; then
-    echo "ERROR: $TMP already exists; refusing to delete it" >&2
+[[ ! -e "$TMP" ]] || {
+    echo "ERROR: $TMP already exists; refusing to delete" >&2
     exit 1
+}
+
+total=$(awk 'NR > 1 && NF { n++ } END { print n+0 }' "$MANIFEST")
+
+if (( START > total )); then
+    echo "ERROR: START=$START exceeds total=$total" >&2
+    exit 2
 fi
 
 cleanup() {
@@ -29,71 +41,53 @@ cleanup() {
 
 trap cleanup EXIT
 
-mkdir -p "$TMP"
-
-total=$(( $(wc -l < "$MANIFEST") - 1 ))
 count=0
+published=0
 
-while IFS=$'\t' read -r name version file sha256 integrity; do
-    # Skip header and empty lines.
-    if [[ "$name" == "name" || -z "$name" ]]; then
-        continue
-    fi
+while IFS=$'\t' read -r name version file sha256 integrity || [[ -n "$name" ]]; do
+    [[ -n "$name" && "$name" != "name" ]] || continue
 
     count=$((count + 1))
+    (( count >= START )) || continue
 
-    SOURCE="$ROOT/$file"
+    archive="$ROOT/$file"
 
-    if [[ ! -f "$SOURCE" ]]; then
-        echo "ERROR: missing archive: $SOURCE" >&2
+    [[ -f "$archive" ]] || {
+        echo "ERROR: missing $archive" >&2
         exit 1
-    fi
+    }
 
-    echo
     echo "[$count/$total] Publishing $name@$version"
 
-    # Clean temporary directory before each package.
-    rm -rf -- "$TMP"
-    mkdir -p "$TMP"
-
-    # Copy the original tarball without modifying it.
-    cp -- "$SOURCE" "$TMP/package.tgz"
-
-    # Extract ONLY package/package.json.
     mkdir -p "$TMP/package"
 
+    cp -- "$archive" "$TMP/package.tgz"
+
+    # Extract only package.json from the archive.
     tar -xzf "$TMP/package.tgz" \
         -C "$TMP" \
         package/package.json
 
-    if [[ ! -f "$TMP/package/package.json" ]]; then
-        echo "ERROR: package.json missing in $name@$version" >&2
-        exit 1
-    fi
-
     mv -- "$TMP/package/package.json" "$TMP/package.json"
     rmdir -- "$TMP/package"
 
-    # Bun 1.4.4 requires package.json in CWD,
-    # even when publishing an existing tarball.
+    # Bun requires package.json in the current directory.
     cd "$TMP"
 
     bun publish ./package.tgz \
         --registry "$REGISTRY" \
         --tag imported \
         --tolerate-republish \
-        --ignore-scripts
+        --ignore-scripts \
+        --no-provenance
 
-    # Return to original working directory.
     cd "$ROOT"
 
-    # Remove both copied tarball and package.json.
     rm -rf -- "$TMP"
-    mkdir -p "$TMP"
 
+    published=$((published + 1))
     echo "OK: $name@$version"
 
 done < "$MANIFEST"
 
-echo
-echo "Published $count packages successfully."
+echo "DONE: start=$START processed=$((count - START + 1)) successful=$published"
