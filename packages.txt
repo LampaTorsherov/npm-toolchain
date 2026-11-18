@@ -2,3 +2,194 @@
 # exact: exact published version; latest: highest stable; major: comma-separated majors;
 # yearly: highest stable patch for each minor whose publication date is within interval;
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
+# ============================================
+# FRONTEND EXTRAS
+# Additional modules for offline npm registry
+# ============================================
+
+# PDF GENERATION / FONTS / TEMPLATES
+pdfmake|latest|
+@types/pdfmake|latest|
+pdfkit|latest|
+@types/pdfkit|latest|
+@pdf-lib/fontkit|latest|
+fontkit|latest|
+@types/fontkit|latest|
+opentype.js|latest|
+@types/opentype.js|latest|
+@pdfme/common|latest|
+@pdfme/generator|latest|
+@pdfme/schemas|latest|
+@pdfme/ui|latest|
+
+# OFFICE DOCUMENTS / CONVERSION
+docx|latest|
+pptxgenjs|latest|
+docxtemplater|latest|
+pizzip|latest|
+mammoth|latest|
+
+# FILES / ARCHIVES / CONTENT TYPES
+@zip.js/zip.js|latest|
+file-type|latest|
+streamsaver|latest|
+
+# HTML / SVG / CANVAS EXPORT
+html2canvas|latest|
+html-to-image|latest|
+canvg|latest|
+fabric|latest|
+konva|latest|
+roughjs|latest|
+@svgdotjs/svg.js|latest|
+svgson|latest|
+svgpath|latest|
+svgo|latest|
+
+# IMAGE PROCESSING / EXIF / COMPRESSION
+pica|latest|
+@types/pica|latest|
+compressorjs|latest|
+browser-image-compression|latest|
+exifr|latest|
+exifreader|latest|
+
+# QR / BARCODES / SCANNING
+qrcode|latest|
+@types/qrcode|latest|
+qr-code-styling|latest|
+jsbarcode|latest|
+@types/jsbarcode|latest|
+bwip-js|latest|
+@bwip-js/browser|latest|
+@zxing/browser|latest|
+html5-qrcode|latest|
+tesseract.js|latest|
+
+# CODEMIRROR ADDITIONAL MODULES
+@codemirror/lang-markdown|latest|
+@codemirror/lang-xml|latest|
+@codemirror/lang-sql|latest|
+@codemirror/lang-python|latest|
+@codemirror/search|latest|
+@codemirror/autocomplete|latest|
+@codemirror/lint|latest|
+@codemirror/commands|latest|
+
+# TIPTAP ADDITIONAL EXTENSIONS
+@tiptap/extension-task-list|latest|
+@tiptap/extension-task-item|latest|
+@tiptap/extension-underline|latest|
+@tiptap/extension-highlight|latest|
+@tiptap/extension-color|latest|
+@tiptap/extension-text-style|latest|
+@tiptap/extension-placeholder|latest|
+@tiptap/extension-text-align|latest|
+@tiptap/extension-typography|latest|
+@tiptap/extension-character-count|latest|
+
+# COLLABORATIVE DATA / CRDT
+yjs|latest|
+y-protocols|latest|
+y-indexeddb|latest|
+y-websocket|latest|
+
+# TEXT / JSON / DIFF / CONFIG
+diff|latest|
+@types/diff|latest|
+diff-match-patch|latest|
+@types/diff-match-patch|latest|
+jsondiffpatch|latest|
+fast-json-patch|latest|
+jsonpath-plus|latest|
+jsonc-parser|latest|
+jsoneditor|latest|
+yaml|latest|
+js-yaml|latest|
+@types/js-yaml|latest|
+
+# FILE UPLOAD / RESUMABLE UPLOADS
+@uppy/core|latest|
+@uppy/dashboard|latest|
+@uppy/drag-drop|latest|
+@uppy/progress-bar|latest|
+@uppy/xhr-upload|latest|
+@uppy/tus|latest|
+tus-js-client|latest|
+
+# ADVANCED UI / LAYOUT / INTERACTION
+tippy.js|latest|
+@popperjs/core|latest|
+simplebar|latest|
+overlayscrollbars|latest|
+split.js|latest|
+gridstack|latest|
+driver.js|latest|
+shepherd.js|latest|
+hotkeys-js|latest|
+mousetrap|latest|
+@types/mousetrap|latest|
+screenfull|latest|
+
+# SEARCH / FUZZY SEARCH / LOCAL INDEX
+fuse.js|latest|
+minisearch|latest|
+flexsearch|latest|
+lunr|latest|
+@types/lunr|latest|
+
+# BINARY / COMPRESSION / HASHING
+protobufjs|latest|
+@bufbuild/protobuf|latest|
+cbor-x|latest|
+pako|latest|
+@types/pako|latest|
+lz-string|latest|
+hash-wasm|latest|
+xxhash-wasm|latest|
+crc-32|latest|
+
+# NUMBERS / PRECISION / PHONE / CALENDAR
+decimal.js|latest|
+big.js|latest|
+@types/big.js|latest|
+bignumber.js|latest|
+mathjs|latest|
+currency.js|latest|
+libphonenumber-js|latest|
+rrule|latest|
+
+# MAPS / GEO / GIS
+leaflet|latest|
+@types/leaflet|latest|
+maplibre-gl|latest|
+ol|latest|
+@turf/turf|latest|
+proj4|latest|
+@types/proj4|latest|
+
+# AUDIO / VIDEO
+hls.js|latest|
+dashjs|latest|
+wavesurfer.js|latest|
+howler|latest|
+@types/howler|latest|
+
+# WEB WORKERS / SERVICE WORKERS / PWA
+comlink|latest|
+workbox-core|latest|
+workbox-window|latest|
+workbox-precaching|latest|
+workbox-routing|latest|
+workbox-strategies|latest|
+
+# NOTIFICATIONS / UI FEEDBACK
+sweetalert2|latest|
+notyf|latest|
+nprogress|latest|
+@types/nprogress|latest|
+
+# BROWSER DIAGNOSTICS / OBSERVABILITY
+web-vitals|latest|
+@opentelemetry/api|latest|
+@sentry/browser|latest|
