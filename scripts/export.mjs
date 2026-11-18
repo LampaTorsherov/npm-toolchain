@@ -92,6 +92,65 @@ function latestStable(meta, context) {
   return versions.at(-1);
 }
 
+// Handle mixed SemVer ranges and the Tailwind
+// experimental "insiders" release channel.
+//
+// Example:
+// >=3.0.0 || >=4.0.0 || insiders
+//
+// The exporter mirrors stable releases, so it
+// resolves the valid SemVer alternatives and
+// records the omitted channel as a warning.
+//
+// Other unsupported alternatives still fail.
+function normalizeRange(range, context) {
+  if (semver.validRange(range)) {
+    return range;
+  }
+
+  const alternatives = range.split(/\s*\|\|\s*/);
+
+  if (alternatives.length < 2) {
+    throw new Error(
+      `${context}: unsupported dependency spec ${range}`
+    );
+  }
+
+  const valid = [];
+  let skippedInsiders = false;
+
+  for (const alternative of alternatives) {
+    const part = alternative.trim();
+
+    if (semver.validRange(part)) {
+      valid.push(part);
+    } else if (part === "insiders") {
+      skippedInsiders = true;
+    } else {
+      throw new Error(
+        `${context}: unsupported dependency spec ${range}`
+      );
+    }
+  }
+
+  if (!valid.length || !skippedInsiders) {
+    throw new Error(
+      `${context}: unsupported dependency spec ${range}`
+    );
+  }
+
+  const normalized = valid.join(" || ");
+
+  const msg =
+    `NON-SEMVER ALTERNATIVE SKIPPED: ${context}: ` +
+    `${range} -> ${normalized}`;
+
+  warnings.push(msg);
+  console.warn(`WARN: ${msg}`);
+
+  return normalized;
+}
+
 function chooseVersion(meta, range, context) {
   if (exact(range)) {
     if (!meta.versions?.[range]) {
@@ -116,18 +175,17 @@ function chooseVersion(meta, range, context) {
     return tagged;
   }
 
-  if (!semver.validRange(range)) {
-    throw new Error(
-      `${context}: unsupported dependency spec ${range}`
-    );
-  }
+  const effectiveRange = normalizeRange(
+    range,
+    context
+  );
 
   const versions = Object.keys(meta.versions || {})
     .filter(exact);
 
   const resolved = semver.maxSatisfying(
     versions,
-    range,
+    effectiveRange,
     { includePrerelease: false }
   );
 
@@ -346,8 +404,8 @@ async function resolveOne(id) {
     ],
   ];
 
-  // Disabled for all packages by default,
-  // including root packages.
+  // devDependencies are disabled for both root
+  // and transitive packages unless explicitly enabled.
   if (ALL_DEV) {
     groups.push([
       "devDependencies",
