@@ -2,3 +2,236 @@
 # exact: exact published version; latest: highest stable; major: comma-separated majors;
 # yearly: highest stable patch for each minor whose publication date is within interval;
 # ts-yearly: same yearly selection for TypeScript; major-latest: highest stable patch for major.
+# ============================================
+# FRONTEND BUILD TOOLCHAIN
+# Curated packages for offline npm registry
+# ============================================
+
+# JS MINIFIERS / TRANSFORMERS
+sucrase|latest|
+@swc/core|latest|
+@swc/cli|latest|
+@swc/helpers|latest|
+@swc/jest|latest|
+oxc-parser|latest|
+oxc-transform|latest|
+oxc-minify|latest|
+
+# HTML MINIFICATION / PARSING
+html-minifier-terser|latest|
+@types/html-minifier-terser|latest|
+parse5|latest|
+cheerio|latest|
+
+# CSS MINIFICATION / PROCESSING
+cssnano|latest|
+csso|latest|
+clean-css|latest|
+@types/clean-css|latest|
+postcss-import|latest|
+postcss-url|latest|
+postcss-nesting|latest|
+postcss-preset-env|latest|
+postcss-modules|latest|
+postcss-selector-parser|latest|
+postcss-value-parser|latest|
+postcss-calc|latest|
+
+# CSS PREPROCESSORS
+sass|latest|
+sass-embedded|latest|
+less|latest|
+postcss-scss|latest|
+postcss-less|latest|
+
+# TAILWIND CSS
+tailwindcss|latest|
+@tailwindcss/cli|latest|
+@tailwindcss/postcss|latest|
+@tailwindcss/vite|latest|
+@tailwindcss/forms|latest|
+@tailwindcss/typography|latest|
+
+# UNOCSS
+unocss|latest|
+@unocss/vite|latest|
+
+# VITE OFFICIAL PLUGINS
+@vitejs/plugin-react|latest|
+@vitejs/plugin-react-swc|latest|
+@vitejs/plugin-vue|latest|
+@vitejs/plugin-vue-jsx|latest|
+@vitejs/plugin-legacy|latest|
+@vitejs/plugin-basic-ssl|latest|
+
+# VITE ESTABLISHED PLUGINS
+vite-tsconfig-paths|latest|
+vite-plugin-dts|latest|
+vite-plugin-checker|latest|
+vite-plugin-inspect|latest|
+vite-plugin-static-copy|latest|
+vite-plugin-svgr|latest|
+vite-plugin-pwa|latest|
+
+# UNPLUGIN ECOSYSTEM
+unplugin|latest|
+unplugin-auto-import|latest|
+unplugin-icons|latest|
+unplugin-vue-components|latest|
+
+# ROLLUP OFFICIAL PLUGINS
+@rollup/plugin-alias|latest|
+@rollup/plugin-babel|latest|
+@rollup/plugin-json|latest|
+@rollup/plugin-replace|latest|
+@rollup/plugin-terser|latest|
+@rollup/plugin-url|latest|
+@rollup/plugin-image|latest|
+@rollup/plugin-virtual|latest|
+@rollup/plugin-wasm|latest|
+@rollup/plugin-yaml|latest|
+@rollup/plugin-inject|latest|
+@rollup/plugin-strip|latest|
+@rollup/plugin-dynamic-import-vars|latest|
+@rollup/plugin-html|latest|
+
+# ROLLUP ESTABLISHED PLUGINS
+rollup-plugin-dts|latest|
+rollup-plugin-esbuild|latest|
+rollup-plugin-postcss|latest|
+rollup-plugin-visualizer|latest|
+
+# BABEL CORE
+@babel/core|latest|
+@babel/cli|latest|
+@babel/parser|latest|
+@babel/traverse|latest|
+@babel/generator|latest|
+@babel/types|latest|
+@babel/template|latest|
+@babel/register|latest|
+@babel/runtime|latest|
+
+# BABEL PRESETS
+@babel/preset-env|latest|
+@babel/preset-typescript|latest|
+@babel/preset-react|latest|
+
+# BABEL OFFICIAL TRANSFORMS
+@babel/plugin-transform-runtime|latest|
+@babel/plugin-transform-typescript|latest|
+@babel/plugin-transform-react-jsx|latest|
+@babel/plugin-transform-class-properties|latest|
+@babel/plugin-transform-private-methods|latest|
+@babel/plugin-transform-optional-chaining|latest|
+@babel/plugin-transform-nullish-coalescing-operator|latest|
+@babel/plugin-transform-modules-commonjs|latest|
+@babel/plugin-proposal-decorators|latest|
+
+# BABEL INTEGRATIONS
+babel-loader|latest|
+babel-jest|latest|
+babel-plugin-istanbul|latest|
+
+# WEBPACK CORE
+webpack|latest|
+webpack-cli|latest|
+webpack-dev-server|latest|
+webpack-merge|latest|
+
+# WEBPACK OFFICIAL / ESTABLISHED PLUGINS
+html-webpack-plugin|latest|
+mini-css-extract-plugin|latest|
+css-loader|latest|
+style-loader|latest|
+postcss-loader|latest|
+sass-loader|latest|
+less-loader|latest|
+swc-loader|latest|
+esbuild-loader|latest|
+ts-loader|latest|
+terser-webpack-plugin|latest|
+css-minimizer-webpack-plugin|latest|
+copy-webpack-plugin|latest|
+compression-webpack-plugin|latest|
+webpack-bundle-analyzer|latest|
+source-map-loader|latest|
+tsconfig-paths-webpack-plugin|latest|
+
+# RSPACK
+@rspack/core|latest|
+@rspack/cli|latest|
+@rspack/dev-server|latest|
+
+# RSBUILD
+@rsbuild/core|latest|
+@rsbuild/plugin-react|latest|
+@rsbuild/plugin-vue|latest|
+@rsbuild/plugin-sass|latest|
+@rsbuild/plugin-less|latest|
+@rsbuild/plugin-type-check|latest|
+
+# JAVASCRIPT PARSERS / AST
+acorn|latest|
+acorn-walk|latest|
+es-module-lexer|latest|
+cjs-module-lexer|latest|
+magic-string|latest|
+estree-walker|latest|
+
+# SOURCE MAPS
+source-map|latest|
+source-map-support|latest|
+@types/source-map-support|latest|
+@jridgewell/trace-mapping|latest|
+@jridgewell/gen-mapping|latest|
+@jridgewell/sourcemap-codec|latest|
+
+# BROWSER TARGETS / POLYFILLS
+browserslist|latest|
+caniuse-lite|latest|
+core-js|latest|
+core-js-compat|latest|
+regenerator-runtime|latest|
+
+# LINT / FORMAT / VALIDATION
+@biomejs/biome|latest|
+oxlint|latest|
+oxfmt|latest|
+htmlhint|latest|
+html-validate|latest|
+stylelint|latest|
+stylelint-config-standard|latest|
+stylelint-config-recommended|latest|
+
+# TYPESCRIPT DECLARATIONS / DOCUMENTATION
+@microsoft/api-extractor|latest|
+@microsoft/api-documenter|latest|
+typedoc|latest|
+tsc-alias|latest|
+tsconfig-paths|latest|
+
+# BUNDLE / PACKAGE ANALYSIS
+source-map-explorer|latest|
+publint|latest|
+@arethetypeswrong/cli|latest|
+knip|latest|
+dependency-cruiser|latest|
+
+# TESTING / COVERAGE
+@vitest/coverage-v8|latest|
+@vitest/coverage-istanbul|latest|
+@vitest/ui|latest|
+@vitest/browser|latest|
+c8|latest|
+nyc|latest|
+istanbul-lib-instrument|latest|
+
+# BUILD EXECUTION UTILITIES
+tsx|latest|
+ts-node|latest|
+jiti|latest|
+cross-env|latest|
+concurrently|latest|
+rimraf|latest|
+wait-on|latest|
